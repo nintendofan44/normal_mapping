@@ -1,0 +1,10 @@
+-------------------------------------------------------
+| while in "normal_mapping/source" use these commands |
+|						      |
+| picasso --out="vshader.shbin" vshader.v.pica	      |
+-------------------------------------------------------
+| while in "normal_mapping/gfx" use these commands    |
+|						      |
+| tex3ds -i diffuse.t3s -H diffuse.h -o diffuse.t3x   |
+| tex3ds -i normal.t3s -H normal.h -o normal.t3x      |
+-------------------------------------------------------
