@@ -68,6 +68,7 @@ namespace {
 	// model 2
 	//C3D_Tex ches_tex, chesn_tex;
 
+	unsigned int __pos = 0;
 	float xAngle = 12.0;
 	float zAngle = 0.0;
 	float yOffsetMult = -0.37;
@@ -90,65 +91,29 @@ namespace {
 		return true;
 	}
 
-	float calcTangents(float pos1[3], float pos2[3], float pos3[3], float uv1[3], float uv2[2], float uv3[2], float n[3]) {
-		float xp2p1 = (float)(pos2[0] - pos1[0]);
-		float yp2p1 = (float)(pos2[1] - pos1[1]);
-		float zp2p1 = (float)(pos2[2] - pos1[2]);
+	C3D_FVec calcTangents(float pos1[3], float pos2[3], float pos3[3], float uv1[2], float uv2[2], float uv3[2], float n[3]) {
+		C3D_FVec v2v1 = FVec3_New(pos2[0] - pos1[0], pos2[1] - pos1[1], pos2[2] - pos1[2]);
 
-		float v2v1[3] = { xp2p1, yp2p1, zp2p1 };
-
-		float xp3p1 = (float)(pos3[0] - pos1[0]);
-		float yp3p1 = (float)(pos3[1] - pos1[1]);
-		float zp3p1 = (float)(pos3[2] - pos1[2]);
-
-		float v3v1[3] = { xp3p1, yp3p1, zp3p1 };
+		C3D_FVec v3v1 = FVec3_New(pos3[0] - pos1[0], pos3[1] - pos1[1], pos3[2] - pos1[2]);
 
 		float c2c1b = (float)(uv2[1] - uv1[1]);
 		float c3c1b = (float)(uv3[1] - uv1[1]);
 
-		float xcmul = v2v1[0] * c3c1b;
-		float ycmul = v2v1[1] * c3c1b;
-		float zcmul = v2v1[2] * c3c1b;
+		C3D_FVec v2v1mulc3c1b = FVec3_New(v2v1.x * c3c1b, v2v1.y * c3c1b, v2v1.z * c3c1b);
 
-		float v2v1mulc3c1b[3] = { xcmul, ycmul, zcmul };
+		C3D_FVec v3v1mulc2c1b = FVec3_New(v3v1.x * c2c1b, v3v1.y * c2c1b, v3v1.z * c2c1b);
 
-		float xcmul2 = v3v1[0] * c2c1b;
-		float ycmul2 = v3v1[1] * c2c1b;
-		float zcmul2 = v3v1[2] * c2c1b;
+		C3D_FVec t = FVec3_New(v2v1mulc3c1b.x - v3v1mulc2c1b.x, v2v1mulc3c1b.y - v3v1mulc2c1b.y, v2v1mulc3c1b.z - v3v1mulc2c1b.z);
 
-		float v3v1mulc2c1b[3] = { xcmul2, ycmul2, zcmul2 };
+		C3D_FVec b = FVec3_New((n[1] * t.z) - (n[2] * t.y), (n[2] * t.x) - (n[0] * t.z), (n[0] * t.y) - (n[1] * t.x));
 
-		float xt = (float)(v2v1mulc3c1b[0] - v3v1mulc2c1b[0]);
-		float yt = (float)(v2v1mulc3c1b[1] - v3v1mulc2c1b[1]);
-		float zt = (float)(v2v1mulc3c1b[2] - v3v1mulc2c1b[2]);
+		C3D_FVec bcrossn = FVec3_New((b.y * n[2]) - (b.z * n[1]), (b.z * n[0]) - (b.x * n[2]), (b.x * n[1]) - (b.y * n[0]));
 
-		float t[3] = { xt, yt, zt };
-
-		float xb = (n[1] * t[2]) - (n[2] * t[1]);
-		float yb = (n[2] * t[0]) - (n[0] * t[2]);
-		float zb = (n[0] * t[1]) - (n[1] * t[0]);
-
-		float b[3] = { xb, yb, zb };
-
-		float xbcn = (b[1] * n[2]) - (b[2] * n[1]);
-		float ybcn = (b[2] * n[0]) - (b[0] * n[2]);
-		float zbcn = (b[0] * n[1]) - (b[1] * n[0]);
-
-		float bcrossn[3] = { xbcn, ybcn, zbcn };
-
-		float magnitude = sqrt(bcrossn[0] * bcrossn[0] + bcrossn[1] * bcrossn[1] + bcrossn[2] * bcrossn[2]);
-		if (magnitude > +0.00001f) {
-			float xret = bcrossn[0] / magnitude;
-			float yret = bcrossn[1] / magnitude;
-			float zret = bcrossn[2] / magnitude;
-
-			float returnval[3] = { xret, yret, zret };
-			return (float)*((float*)returnval);
-		}
-		else {
-			float zeros[3] = { 0.0f, 0.0f, 0.0f };
-			return (float)*((float*)zeros);
-		}
+		float magnitude = sqrt(pow(bcrossn.x, 2.0f) + pow(bcrossn.y, 2.0f) + pow(bcrossn.z, 2.0f));
+		if (magnitude > +0.00001f)
+			return FVec3_New(bcrossn.x / magnitude, bcrossn.y / magnitude, bcrossn.z / magnitude);
+		else
+			return FVec3_New(0.0, 0.0, 0.0);
 	}
 
 	vertex get_vertex(std::vector<vertex> _vert, int idx) {
@@ -163,8 +128,9 @@ namespace {
 	}
 
 	void populateTangents(std::vector<vertex> _arr) {
-		for (unsigned int i = 0; i < (_arr.size() / 3) + 1; i++) {
-			float tang[3] = { calcTangents(get_vertex(_arr, i).position, get_vertex(_arr, i + 1).position, get_vertex(_arr, i + 2).position, get_vertex(_arr, i).uv, get_vertex(_arr, i + 1).uv, get_vertex(_arr, i + 2).uv, get_vertex(_arr, i + 2).normal) };
+		for (int i = 0; i < ((int)_arr.size() / 3); i++) {
+			C3D_FVec tangent_vec = calcTangents(get_vertex(_arr, i).position, get_vertex(_arr, i + 1).position, get_vertex(_arr, i + 2).position, get_vertex(_arr, i).uv, get_vertex(_arr, i + 1).uv, get_vertex(_arr, i + 2).uv, get_vertex(_arr, i).normal);
+			float tang[3] = {tangent_vec.x, tangent_vec.y, tangent_vec.z};
 
 			std::memcpy(get_vertex(_arr, i).tangent, tang, sizeof(tang));
 			std::memcpy(get_vertex(_arr, i + 1).tangent, tang, sizeof(tang));
@@ -470,19 +436,6 @@ int main()
 		if (kDown & KEY_START)
 			break; // break in order to return to hbmenu
 
-		if (kHeld & KEY_UP)
-		{
-			angleX -= C3D_AngleFromDegrees(2.0f);
-			if (angleX < C3D_AngleFromDegrees(-90.0f))
-				angleX = C3D_AngleFromDegrees(-90.0f);
-		}
-		else if (kHeld & KEY_DOWN)
-		{
-			angleX += C3D_AngleFromDegrees(2.0f);
-			if (angleX > C3D_AngleFromDegrees(90.0f))
-				angleX = C3D_AngleFromDegrees(90.0f);
-		}
-
 		if (kHeld & KEY_LEFT)
 			angleY -= C3D_AngleFromDegrees(2.0f);
 		else if (kHeld & KEY_RIGHT)
@@ -522,13 +475,40 @@ int main()
 		std::printf("\x1b[5;1HangleX:      %6.2f%\x1b[K", angleX * (M_PI / 180));
 		std::printf("\x1b[6;1HangleY:      %6.2f%\x1b[K", angleY * (M_PI / 180));*/
 
-
-
 		/*std::printf("\x1b[7;1H--------------------------");*/
 
-		std::printf("\x1b[14;1H CPU:         %6.2f%%\x1b[K", C3D_GetProcessingTime() * 6.0f);
-		std::printf("\x1b[15;1H GPU:         %6.2f%%\x1b[K", C3D_GetDrawingTime() * 6.0f);
-		std::printf("\x1b[16;1H CmdBuf:      %6.2f%%\x1b[K", C3D_GetCmdBufUsage() * 100.0f);
+		if (kDown & KEY_L)
+		{
+			/*angleX -= C3D_AngleFromDegrees(2.0f);
+			if (angleX < C3D_AngleFromDegrees(-90.0f))
+				angleX = C3D_AngleFromDegrees(-90.0f);*/
+			if (__pos < cube_list.size())
+				__pos += 1;
+		}
+		else if (kDown & KEY_R)
+		{
+			/*angleX += C3D_AngleFromDegrees(2.0f);
+			if (angleX > C3D_AngleFromDegrees(90.0f))
+				angleX = C3D_AngleFromDegrees(90.0f);*/
+			if (__pos > 0)
+				__pos -= 1;
+		}
+
+		std::printf("\x1b[10;1H        ------------------------");
+		std::printf("\x1b[11;1H        | CPU:         %6.2f%%\x1b[K |", C3D_GetProcessingTime() * 6.0f);
+		std::printf("\x1b[12;1H        | GPU:         %6.2f%%\x1b[K |", C3D_GetDrawingTime() * 6.0f);
+		std::printf("\x1b[13;1H        | CmdBuf:      %6.2f%%\x1b[K |", C3D_GetCmdBufUsage() * 100.0f);
+		std::printf("\x1b[14;1H        ------------------------");
+		std::printf(std::string("\x1b[15;1H        | Idx:         %6.2f%\x1b[K  |").c_str(), (float)__pos);
+		std::printf(std::string("\x1b[16;1H        | Tangent X:   %6.2f%\x1b[K  |").c_str(), (float)cube_list[__pos].tangent[0]);
+		std::printf(std::string("\x1b[17;1H        | Tangent Y:   %6.2f%\x1b[K  |").c_str(), (float)cube_list[__pos].tangent[1]);
+		std::printf(std::string("\x1b[18;1H        | Tangent Z:   %6.2f%\x1b[K  |").c_str(), (float)cube_list[__pos].tangent[2]);
+		std::printf("\x1b[19;1H        ------------------------");
+
+		// spent a good amount of time doing this thing thats under this text just to decide to go back to the older "version" LOL (keeping it here in case i need it again)
+		/*std::printf((std::string("\x1b[15;1H Tangent-") + std::to_string(__pos) + std::string(" X: %6.2f%\x1b[K")).c_str(), (float)cube_list[__pos].tangent[0]);
+		std::printf((std::string("\x1b[16;1H Tangent-") + std::to_string(__pos) + std::string(" Y: %6.2f%\x1b[K")).c_str(), (float)cube_list[__pos].tangent[1]);
+		std::printf((std::string("\x1b[17;1H Tangent-") + std::to_string(__pos) + std::string(" Z: %6.2f%\x1b[K")).c_str(), (float)cube_list[__pos].tangent[2]);*/
 
 		// Render the scene
 		C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
