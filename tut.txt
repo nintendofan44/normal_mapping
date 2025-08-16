@@ -16,3 +16,6 @@ tex3ds -i skybox.t3s -H skybox.h -o skybox.t3x
 
 tex3ds -i beecat.t3s -H beecat.h -o beecat.t3x
 tex3ds -i beecatn.t3s -H beecatn.h -o beecatn.t3x
+
+tex3ds -i bloxi.t3s -H bloxi.h -o bloxi.t3x
+tex3ds -i bloxin.t3s -H bloxin.h -o bloxin.t3x

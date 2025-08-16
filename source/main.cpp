@@ -21,6 +21,8 @@
 #include "chesn_t3x.h"*/
 #include "beecat_t3x.h"
 #include "beecatn_t3x.h"
+#include "bloxi_t3x.h"
+#include "bloxin_t3x.h"
 
 #include <cstdio>
 #include <cstdlib>
@@ -30,6 +32,8 @@
 #include "inc/modelos/default_cube.obj.h"
 #include "inc/modelos/chess_cube.obj.h"
 #include "inc/modelos/bola.obj.h"
+//#include "inc/modelos/bloxiade.obj.h"
+#include "inc/modelos/bloxycola.obj.h"
 
 // 2d
 
@@ -64,6 +68,10 @@ namespace {
 
 	C3D_Tex beecat_tex;
 	C3D_Tex beecatn_tex;
+	C3D_Tex bloxi_tex;
+	C3D_Tex bloxin_tex;
+
+	C3D_FVec bloxy_rotation = FVec3_New(C3D_AngleFromDegrees(0.0), C3D_AngleFromDegrees(0.0), C3D_AngleFromDegrees(0.0));
 
 	// model 2
 	//C3D_Tex ches_tex, chesn_tex;
@@ -91,29 +99,24 @@ namespace {
 		return true;
 	}
 
-	C3D_FVec calcTangents(float pos1[3], float pos2[3], float pos3[3], float uv1[2], float uv2[2], float uv3[2], float n[3]) {
-		C3D_FVec v2v1 = FVec3_New(pos2[0] - pos1[0], pos2[1] - pos1[1], pos2[2] - pos1[2]);
+	C3D_FVec calcTangents(C3D_FVec pos1, C3D_FVec pos2, C3D_FVec pos3, C3D_FVec uv1, C3D_FVec uv2, C3D_FVec uv3, C3D_FVec n) {
+		C3D_FVec v2v1 = FVec3_Subtract(pos2, pos1);
+		C3D_FVec v3v1 = FVec3_Subtract(pos3, pos1);
 
-		C3D_FVec v3v1 = FVec3_New(pos3[0] - pos1[0], pos3[1] - pos1[1], pos3[2] - pos1[2]);
+		float c2c1b = uv2.y - uv1.y;
+		float c3c1b = uv3.y - uv1.y;
 
-		float c2c1b = (float)(uv2[1] - uv1[1]);
-		float c3c1b = (float)(uv3[1] - uv1[1]);
+		C3D_FVec v2v1mulc3c1b = FVec3_Scale(v2v1, c3c1b);
+		C3D_FVec v3v1mulc2c1b = FVec3_Scale(v3v1, c2c1b);
 
-		C3D_FVec v2v1mulc3c1b = FVec3_New(v2v1.x * c3c1b, v2v1.y * c3c1b, v2v1.z * c3c1b);
+		C3D_FVec t = FVec3_Subtract(v2v1mulc3c1b, v3v1mulc2c1b);
+		C3D_FVec b = FVec3_Cross(n, t);
+		C3D_FVec bcrossn = FVec3_Cross(b, n);
 
-		C3D_FVec v3v1mulc2c1b = FVec3_New(v3v1.x * c2c1b, v3v1.y * c2c1b, v3v1.z * c2c1b);
-
-		C3D_FVec t = FVec3_New(v2v1mulc3c1b.x - v3v1mulc2c1b.x, v2v1mulc3c1b.y - v3v1mulc2c1b.y, v2v1mulc3c1b.z - v3v1mulc2c1b.z);
-
-		C3D_FVec b = FVec3_New((n[1] * t.z) - (n[2] * t.y), (n[2] * t.x) - (n[0] * t.z), (n[0] * t.y) - (n[1] * t.x));
-
-		C3D_FVec bcrossn = FVec3_New((b.y * n[2]) - (b.z * n[1]), (b.z * n[0]) - (b.x * n[2]), (b.x * n[1]) - (b.y * n[0]));
-
-		float magnitude = sqrt(pow(bcrossn.x, 2.0f) + pow(bcrossn.y, 2.0f) + pow(bcrossn.z, 2.0f));
-		if (magnitude > +0.00001f)
-			return FVec3_New(bcrossn.x / magnitude, bcrossn.y / magnitude, bcrossn.z / magnitude);
+		if (FVec3_Magnitude(bcrossn) > 0.00001f)
+			return FVec3_Normalize(bcrossn);
 		else
-			return FVec3_New(0.0, 0.0, 0.0);
+			return FVec3_New(0.0f, 0.0f, 0.0f);
 	}
 
 	vertex get_vertex(std::vector<vertex> _vert, int idx) {
@@ -127,14 +130,27 @@ namespace {
 		C3D_ImmSendAttrib(info.tangent[0], info.tangent[1], info.tangent[2], 0.0f); // v3 - tang
 	}
 
-	void populateTangents(std::vector<vertex> _arr) {
-		for (int i = 0; i < ((int)_arr.size() / 3); i++) {
-			C3D_FVec tangent_vec = calcTangents(get_vertex(_arr, i).position, get_vertex(_arr, i + 1).position, get_vertex(_arr, i + 2).position, get_vertex(_arr, i).uv, get_vertex(_arr, i + 1).uv, get_vertex(_arr, i + 2).uv, get_vertex(_arr, i).normal);
-			float tang[3] = {tangent_vec.x, tangent_vec.y, tangent_vec.z};
+	void populateTangents(std::vector<vertex> _arr, std::vector<unsigned int> indlist = {}) {
+		if (indlist.empty()) {
+			for (int i = 0; i < (int)_arr.size(); i++) {
+				indlist.push_back((unsigned int)i);
+			}
+		}
+		for (int i = 0; i < ((int)indlist.size() / 3); i++) {
+			C3D_FVec tangent_vec = calcTangents(
+				FVec3_New(get_vertex(_arr, indlist[i]).position[0], get_vertex(_arr, indlist[i]).position[1], get_vertex(_arr, indlist[i]).position[2]),
+				FVec3_New(get_vertex(_arr, indlist[i + 1]).position[0], get_vertex(_arr, indlist[i + 1]).position[1], get_vertex(_arr, indlist[i + 1]).position[2]),
+				FVec3_New(get_vertex(_arr, indlist[i + 2]).position[0], get_vertex(_arr, indlist[i + 2]).position[1], get_vertex(_arr, indlist[i + 2]).position[2]),
+				FVec3_New(get_vertex(_arr, indlist[i]).uv[0], get_vertex(_arr, indlist[i]).uv[1], 0.0f),
+				FVec3_New(get_vertex(_arr, indlist[i + 1]).uv[0], get_vertex(_arr, indlist[i + 1]).uv[1], 0.0f),
+				FVec3_New(get_vertex(_arr, indlist[i + 2]).uv[0], get_vertex(_arr, indlist[i + 2]).uv[1], 0.0f),
+				FVec3_New(get_vertex(_arr, indlist[i]).normal[0], get_vertex(_arr, indlist[i]).normal[1], get_vertex(_arr, indlist[i]).normal[2])
+			);
+			std::vector<float> tang = {tangent_vec.x, tangent_vec.y, tangent_vec.z};
 
-			std::memcpy(get_vertex(_arr, i).tangent, tang, sizeof(tang));
-			std::memcpy(get_vertex(_arr, i + 1).tangent, tang, sizeof(tang));
-			std::memcpy(get_vertex(_arr, i + 2).tangent, tang, sizeof(tang));
+			std::memcpy(get_vertex(_arr, indlist[i]).tangent, &tang, sizeof(tang));
+			std::memcpy(get_vertex(_arr, indlist[i + 1]).tangent, &tang, sizeof(tang));
+			std::memcpy(get_vertex(_arr, indlist[i + 2]).tangent, &tang, sizeof(tang));
 		}
 	}
 
@@ -157,7 +173,7 @@ namespace {
 		AttrInfo_AddLoader(attrInfo, 2, GPU_FLOAT, 3); // v2=normal
 		AttrInfo_AddLoader(attrInfo, 3, GPU_FLOAT, 3); // v3=tangent
 
-		populateTangents(vertex_list);
+		populateTangents(blox_list);
 		populateTangents(cube_list);
 		populateTangents(sphere_list);
 
@@ -175,6 +191,10 @@ namespace {
 			svcBreak(USERBREAK_PANIC);
 		if (!loadTextureFromMem(&beecatn_tex, nullptr, beecatn_t3x, beecatn_t3x_size))
 			svcBreak(USERBREAK_PANIC);
+		if (!loadTextureFromMem(&bloxi_tex, nullptr, bloxi_t3x, bloxi_t3x_size))
+			svcBreak(USERBREAK_PANIC);
+		if (!loadTextureFromMem(&bloxin_tex, nullptr, bloxin_t3x, bloxin_t3x_size))
+			svcBreak(USERBREAK_PANIC);
 
 		const C3D_Material material =
 		{
@@ -189,7 +209,7 @@ namespace {
 		C3D_LightEnvBind(&lightEnv);
 		C3D_LightEnvMaterial(&lightEnv, &material);
 		C3D_LightEnvBumpMode(&lightEnv, GPU_BUMP_AS_BUMP);
-		C3D_LightEnvBumpNormalZ(&lightEnv, false);
+		C3D_LightEnvBumpNormalZ(&lightEnv, true);
 		C3D_LightEnvBumpSel(&lightEnv, 1);
 
 		LightLut_Phong(&lut_Phong, 30);
@@ -216,7 +236,7 @@ namespace {
 
 		staticTextBuf = C2D_TextBufNew(4096);
 
-		char buf[160] = "beecat";
+		char buf[160] = "normal map";
 
 		C2D_TextParse(&txt_helloWorldOutl, staticTextBuf, buf);
 		C2D_TextOptimize(&txt_helloWorldOutl);
@@ -352,11 +372,11 @@ namespace {
 			{ 0.906f, 0.486f, 0.561f }, //emission
 		}, FVec3_New(0.0, -1.0, -3.0), FVec3_New(C3D_AngleFromDegrees(15.0), C3D_AngleFromDegrees(0.0), C3D_AngleFromDegrees(0.0)), FVec3_New(3.0f, 0.25f, 3.0f), diffuse_tex, normal_tex, GPU_REPEAT, GPU_REPEAT);
 
-		C3D_FVec shared_rotation = FVec3_New(C3D_AngleFromDegrees(xAngle), angleY, C3D_AngleFromDegrees(zAngle));
-		//C3D_FVec shared_scale = FVec3_New(0.65f, 0.65f, 0.65f);
-		C3D_FVec shared_scale = FVec3_New(0.125f, 0.125f, 0.125f);
+		//C3D_FVec shared_rotation = FVec3_New(C3D_AngleFromDegrees(xAngle), angleY, C3D_AngleFromDegrees(zAngle));
+		C3D_FVec shared_scale = FVec3_New(0.6f, 0.6f, 0.6f);
+		//C3D_FVec shared_scale = FVec3_New(0.125f, 0.125f, 0.125f);
 
-		float _y = 0.0;
+		/*float _y = 0.0;
 		for (int i = 1; i <= 15; i++) {
 			float aaa = 0.0;
 			if (i % 5 == 0) { 
@@ -370,7 +390,14 @@ namespace {
 				{ 0.0f, 0.0f, 0.0f }, //specular1
 				{ 0.906f, 0.486f, 0.561f }, //emission
 			}, FVec3_New(-((i % 5) * 0.4) + 0.8, ((_y - (1.0 * aaa)) * yOffsetMult) + (-yOffsetMult), -3.0), shared_rotation, shared_scale, beecat_tex, beecatn_tex, GPU_REPEAT, GPU_REPEAT);
-		}
+		}*/
+		drawIndices(blox_list, blox_index, true, true, {
+				{ 0.0f, 0.0f, 0.0f }, //ambient
+				{ 1.0f, 1.0f, 1.0f }, //diffuse
+				{ 0.6f, 0.6f, 0.6f }, //specular0
+				{ 0.0f, 0.0f, 0.0f }, //specular1
+				{ 0.906f, 0.486f, 0.561f }, //emission
+		}, FVec3_New(0.0, 0.0, -3.0), bloxy_rotation, shared_scale, bloxi_tex, bloxin_tex, GPU_REPEAT, GPU_REPEAT);
 
 		// Draw the 2d scene
 		C2D_Prepare();
@@ -378,8 +405,8 @@ namespace {
 
 		//C2D_DrawRectangle(SCREEN_WIDTH / 2, 0, 0, SCREEN_WIDTH / 50, SCREEN_HEIGHT, C2D_Color32(0x9A, 0x6C, 0xB9, 0xFF), C2D_Color32(0xFF, 0xFF, 0x2C, 0xFF), C2D_Color32(0xD8, 0xF6, 0x0F, 0xFF), C2D_Color32(0x40, 0xEA, 0x87, 0xFF));
 
-		float _cos = (cosf(angleY * 1.5f) * 5.0f);
-		float _sen = (sinf(angleY * 1.5f) * 5.0f);
+		float _cos = /*(cosf(angleY * 1.5f) * 5.0f)*/0.0f;
+		float _sen = /*(sinf(angleY * 1.5f) * 5.0f)*/0.0f;
 
 		C2D_DrawText(&txt_helloWorldOutl, C2D_AlignCenter, (SCREEN_WIDTH / 2) + (_cos + 2.85f), 6.0f + _sen, 0.0f, 1.05f, 1.2f);
 		C2D_DrawText(&txt_helloWorld, C2D_AlignCenter | C2D_WithColor, (SCREEN_WIDTH / 2) + _cos, 8.0f + _sen, 0.0f, 1.0f, 1.0f, C2D_Color32f(1, 0.8, 0, 1));
@@ -395,6 +422,8 @@ namespace {
 		C3D_TexDelete(&chesn_tex);*/
 		C3D_TexDelete(&beecat_tex);
 		C3D_TexDelete(&beecatn_tex);
+		C3D_TexDelete(&bloxi_tex);
+		C3D_TexDelete(&bloxin_tex);
 
 		C2D_TextBufDelete(staticTextBuf);
 
@@ -494,16 +523,32 @@ int main()
 				__pos -= 1;
 		}
 
-		std::printf("\x1b[10;1H        ------------------------");
-		std::printf("\x1b[11;1H        | CPU:         %6.2f%%\x1b[K |", C3D_GetProcessingTime() * 6.0f);
-		std::printf("\x1b[12;1H        | GPU:         %6.2f%%\x1b[K |", C3D_GetDrawingTime() * 6.0f);
-		std::printf("\x1b[13;1H        | CmdBuf:      %6.2f%%\x1b[K |", C3D_GetCmdBufUsage() * 100.0f);
-		std::printf("\x1b[14;1H        ------------------------");
-		std::printf(std::string("\x1b[15;1H        | Idx:         %6.2f%\x1b[K  |").c_str(), (float)__pos);
-		std::printf(std::string("\x1b[16;1H        | Tangent X:   %6.2f%\x1b[K  |").c_str(), (float)cube_list[__pos].tangent[0]);
-		std::printf(std::string("\x1b[17;1H        | Tangent Y:   %6.2f%\x1b[K  |").c_str(), (float)cube_list[__pos].tangent[1]);
-		std::printf(std::string("\x1b[18;1H        | Tangent Z:   %6.2f%\x1b[K  |").c_str(), (float)cube_list[__pos].tangent[2]);
-		std::printf("\x1b[19;1H        ------------------------");
+		if (kHeld) {
+			if (KEY_CPAD_UP || KEY_CPAD_DOWN || KEY_CPAD_LEFT || KEY_CPAD_RIGHT) {
+				circlePosition circlePad;
+				hidCircleRead(std::addressof(circlePad));
+				C3D_FVec cpad = FVec3_Normalize(FVec3_New((float)circlePad.dx, (float)circlePad.dy, 0.0));
+
+				std::printf("\x1b[8;1H        dX: %6.2f%\x1b[K", cpad.x);
+				std::printf("\x1b[9;1H        dY: %6.2f%\x1b[K", cpad.y);
+			}
+		}
+		else {
+			std::printf("\x1b[8;1H        Not holding cpad");
+			std::printf("\x1b[9;1H                        ");
+		}
+
+		std::printf("\x1b[11;1H        ------------------------");
+		std::printf("\x1b[12;1H        | CPU:         %6.2f%%\x1b[K |", C3D_GetProcessingTime() * 6.0f);
+		std::printf("\x1b[13;1H        | GPU:         %6.2f%%\x1b[K |", C3D_GetDrawingTime() * 6.0f);
+		std::printf("\x1b[14;1H        | CmdBuf:      %6.2f%%\x1b[K |", C3D_GetCmdBufUsage() * 100.0f);
+		std::printf("\x1b[15;1H        | Frames:          %6.2ld%\x1b[K |", C3D_FrameCounter(0));
+		std::printf("\x1b[16;1H        ------------------------");
+		std::printf(std::string("\x1b[17;1H        | Idx:         %6.2f%\x1b[K  |").c_str(), (float)__pos);
+		std::printf(std::string("\x1b[18;1H        | Tangent X:   %6.2f%\x1b[K  |").c_str(), (float)cube_list[__pos].tangent[0]);
+		std::printf(std::string("\x1b[19;1H        | Tangent Y:   %6.2f%\x1b[K  |").c_str(), (float)cube_list[__pos].tangent[1]);
+		std::printf(std::string("\x1b[20;1H        | Tangent Z:   %6.2f%\x1b[K  |").c_str(), (float)cube_list[__pos].tangent[2]);
+		std::printf("\x1b[21;1H        ------------------------");
 
 		// spent a good amount of time doing this thing thats under this text just to decide to go back to the older "version" LOL (keeping it here in case i need it again)
 		/*std::printf((std::string("\x1b[15;1H Tangent-") + std::to_string(__pos) + std::string(" X: %6.2f%\x1b[K")).c_str(), (float)cube_list[__pos].tangent[0]);
