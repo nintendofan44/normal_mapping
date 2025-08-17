@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <iterator>
 
 // 3d
 
@@ -18,12 +19,12 @@
 
 #include "diffuse_t3x.h"
 #include "normal_t3x.h"
-/*#include "ches_t3x.h"
-#include "chesn_t3x.h"*/
-#include "beecat_t3x.h"
-#include "beecatn_t3x.h"
 #include "bloxi_t3x.h"
 #include "bloxin_t3x.h"
+/*#include "beecat_t3x.h"
+#include "beecatn_t3x.h"
+#include "ches_t3x.h"
+#include "chesn_t3x.h"*/
 
 #include <cstdio>
 #include <cstdlib>
@@ -63,24 +64,25 @@ namespace {
 	C3D_LightEnv lightEnv;
 	C3D_LightLut lut_Phong;
 
+	float lightX, lightY = 0.0;
 	C3D_Light light;
 	C3D_Light light2;
 	C3D_Light light3;
 
-	// model 1
-	C3D_Tex diffuse_tex, normal_tex;
-	float lightX, lightY = 0.0;
-	float turnX, turnY = 0.0;
 	int uLoc_projection, uLoc_modelView;
 	C3D_Mtx projection;
 
-	C3D_Tex beecat_tex;
+	// cube
+	C3D_Tex diffuse_tex, normal_tex;
+
+	// center object
+	float turnX, turnY = 0.0;
+	/*C3D_Tex beecat_tex;
 	C3D_Tex beecatn_tex;
+	C3D_Tex ches_tex;
+	C3D_Tex chesn_tex;*/
 	C3D_Tex bloxi_tex;
 	C3D_Tex bloxin_tex;
-
-	// model 2
-	//C3D_Tex ches_tex, chesn_tex;
 
 	unsigned int __pos = 0;
 	/*float yOffsetMult = -0.37;
@@ -91,8 +93,8 @@ namespace {
 	C2D_Text txt_helloWorldOutl;
 	C2D_Text txt_helloWorld;
 
-	const _3DObject bloxy_model = {blox_list, blox_index};
-	const _3DObject cube_model = {cube_list, cube_index};
+	_3DObject bloxy_model = { blox_list, blox_index };
+	_3DObject cube_model = { cube_list, cube_index };
 
 	// Helper function for loading a texture from memory
 	bool loadTextureFromMem(C3D_Tex* tex, C3D_TexCube* cube, const void* data, size_t size)
@@ -138,19 +140,19 @@ namespace {
 		unsigned int index[3];
 	};
 
-	void populateTangents(_3DObject model) {
-		if (model.indexlist.empty()) {
-			for (int i = 0; i < (int)model.vertlist.size(); i++) {
-				model.indexlist.push_back((unsigned int)i);
+	void populateTangents(_3DObject *model) {
+		if (model->indexlist.empty()) {
+			for (int i = 0; i < (int)model->vertlist.size(); i++) {
+				model->indexlist.push_back((unsigned int)i);
 			}
 		}
 
 		std::vector<Triangle> triangles = {};
-		for (int i = 0; i < ((int)model.indexlist.size() / 3); i++) {
-			triangles.push_back({ model.indexlist[i] , model.indexlist[i + 1], model.indexlist[i + 2] });
+		for (int i = 0; i < ((int)model->indexlist.size() / 3); i++) {
+			triangles.push_back({ model->indexlist[i] , model->indexlist[i + 1], model->indexlist[i + 2] });
 		}
 
-		std::vector<vertex> nv = model.vertlist;
+		std::vector<vertex> nv = model->vertlist;
 		for (int i = 0; i < (int)triangles.size(); i++) {
 			C3D_FVec tangent_vec = calcTangents(
 				FVec3_New(nv[triangles[i].index[0]].position[0], nv[triangles[i].index[0]].position[1], nv[triangles[i].index[0]].position[2]),
@@ -163,11 +165,9 @@ namespace {
 			);
 			float tang[3] = {tangent_vec.x, tangent_vec.y, tangent_vec.z};
 
-			for (int g = 0; g < 3; ++g) {
-				model.vertlist[triangles[i].index[0]].tangent[g] = tang[g];
-				model.vertlist[triangles[i].index[1]].tangent[g] = tang[g];
-				model.vertlist[triangles[i].index[2]].tangent[g] = tang[g];
-			}
+			std::memmove(model->vertlist[triangles[i].index[0]].tangent, tang, sizeof(tang));
+			std::memmove(model->vertlist[triangles[i].index[1]].tangent, tang, sizeof(tang));
+			std::memmove(model->vertlist[triangles[i].index[2]].tangent, tang, sizeof(tang));
 		}
 	}
 
@@ -190,8 +190,8 @@ namespace {
 		AttrInfo_AddLoader(attrInfo, 2, GPU_FLOAT, 3); // v2=normal
 		AttrInfo_AddLoader(attrInfo, 3, GPU_FLOAT, 3); // v3=tangent
 
-		populateTangents(bloxy_model);
-		populateTangents(cube_model);
+		populateTangents(&bloxy_model);
+		populateTangents(&cube_model);
 		//populateTangents(sphere_list, sphere_index);
 
 		// Load the textures and bind them to their respective texture units
@@ -199,19 +199,19 @@ namespace {
 			svcBreak(USERBREAK_PANIC);
 		if (!loadTextureFromMem(&normal_tex, nullptr, normal_t3x, normal_t3x_size))
 			svcBreak(USERBREAK_PANIC);
-		/*if (!loadTextureFromMem(&ches_tex, nullptr, ches_t3x, ches_t3x_size))
-			svcBreak(USERBREAK_PANIC);
-		if (!loadTextureFromMem(&chesn_tex, nullptr, chesn_t3x, chesn_t3x_size))
-			svcBreak(USERBREAK_PANIC);*/
-
-		if (!loadTextureFromMem(&beecat_tex, nullptr, beecat_t3x, beecat_t3x_size))
-			svcBreak(USERBREAK_PANIC);
-		if (!loadTextureFromMem(&beecatn_tex, nullptr, beecatn_t3x, beecatn_t3x_size))
-			svcBreak(USERBREAK_PANIC);
 		if (!loadTextureFromMem(&bloxi_tex, nullptr, bloxi_t3x, bloxi_t3x_size))
 			svcBreak(USERBREAK_PANIC);
 		if (!loadTextureFromMem(&bloxin_tex, nullptr, bloxin_t3x, bloxin_t3x_size))
 			svcBreak(USERBREAK_PANIC);
+
+		/*if (!loadTextureFromMem(&beecat_tex, nullptr, beecat_t3x, beecat_t3x_size))
+			svcBreak(USERBREAK_PANIC);
+		if (!loadTextureFromMem(&beecatn_tex, nullptr, beecatn_t3x, beecatn_t3x_size))
+			svcBreak(USERBREAK_PANIC);
+		if (!loadTextureFromMem(&ches_tex, nullptr, ches_t3x, ches_t3x_size))
+			svcBreak(USERBREAK_PANIC);
+		if (!loadTextureFromMem(&chesn_tex, nullptr, chesn_t3x, chesn_t3x_size))
+			svcBreak(USERBREAK_PANIC);*/
 
 		const C3D_Material material =
 		{
@@ -387,9 +387,9 @@ namespace {
 			{ 0.6f, 0.6f, 0.6f }, //specular0
 			{ 0.0f, 0.0f, 0.0f }, //specular1
 			{ 0.906f, 0.486f, 0.561f }, //emission
-		}, FVec3_New(0.0, -1.0, -3.0), FVec3_New(C3D_AngleFromDegrees(15.0), C3D_AngleFromDegrees(0.0), C3D_AngleFromDegrees(0.0)), FVec3_New(3.0f, 0.25f, 3.0f), diffuse_tex, normal_tex, GPU_REPEAT, GPU_REPEAT);
+		}, FVec3_New(0.0, -1.75, -3.0), FVec3_New(C3D_AngleFromDegrees(15.0), C3D_AngleFromDegrees(0.0), C3D_AngleFromDegrees(0.0)), FVec3_New(3.0f, 0.25f, 3.0f), diffuse_tex, normal_tex, GPU_REPEAT, GPU_REPEAT);
 
-		C3D_FVec shared_scale = FVec3_New(0.7f, 0.7f, 0.7f);
+		C3D_FVec shared_scale = FVec3_New(0.5f, 0.5f, 0.5f);
 
 		/*float _y = 0.0;
 		for (int i = 1; i <= 15; i++) {
@@ -412,7 +412,7 @@ namespace {
 				{ 0.6f, 0.6f, 0.6f }, //specular0
 				{ 0.0f, 0.0f, 0.0f }, //specular1
 				{ 0.906f, 0.486f, 0.561f }, //emission
-		}, FVec3_New(0.0, -0.125, -3.0), FVec3_New(C3D_AngleFromDegrees(turnY), C3D_AngleFromDegrees(turnX), C3D_AngleFromDegrees(0.0)), shared_scale, bloxi_tex, bloxin_tex, GPU_REPEAT, GPU_REPEAT);
+		}, FVec3_New(0.0, -0.0625, -3.0), FVec3_New(C3D_AngleFromDegrees(turnY), C3D_AngleFromDegrees(turnX), C3D_AngleFromDegrees(0.0)), shared_scale, bloxi_tex, bloxin_tex, GPU_REPEAT, GPU_REPEAT);
 
 		// Draw the 2d scene
 		C2D_Prepare();
@@ -433,12 +433,12 @@ namespace {
 		// Free the textures
 		C3D_TexDelete(&diffuse_tex);
 		C3D_TexDelete(&normal_tex);
-		/*C3D_TexDelete(&ches_tex);
-		C3D_TexDelete(&chesn_tex);*/
-		C3D_TexDelete(&beecat_tex);
-		C3D_TexDelete(&beecatn_tex);
 		C3D_TexDelete(&bloxi_tex);
 		C3D_TexDelete(&bloxin_tex);
+		/*C3D_TexDelete(&beecat_tex);
+		C3D_TexDelete(&beecatn_tex);
+		C3D_TexDelete(&ches_tex);
+		C3D_TexDelete(&chesn_tex);*/
 
 		C2D_TextBufDelete(staticTextBuf);
 

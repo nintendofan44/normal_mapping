@@ -6,16 +6,15 @@
 | while in "normal_mapping/gfx" use these commands    |
 |						      |
 | tex3ds -i diffuse.t3s -H diffuse.h -o diffuse.t3x   |
-| tex3ds -i normal.t3s -H normal.h -o normal.t3x      |
+| tex3ds -i normal.t3s -H normal.h -o normal.t3x      | -- normal maps need to be rgb "-f rgb -z auto" (i think)
+| tex3ds -i ches.t3s -H ches.h -o ches.t3x	      |
+| tex3ds -i chesn.t3s -H chesn.h -o chesn.t3x         |
+|						      |
+| tex3ds -i skybox.t3s -H skybox.h -o skybox.t3x      |
+|                                                     |
+| tex3ds -i beecat.t3s -H beecat.h -o beecat.t3x      |
+| tex3ds -i beecatn.t3s -H beecatn.h -o beecatn.t3x   |
+|                                                     |
+| tex3ds -i bloxi.t3s -H bloxi.h -o bloxi.t3x         |
+| tex3ds -i bloxin.t3s -H bloxin.h -o bloxin.t3x      |
 -------------------------------------------------------
-
-tex3ds -i ches.t3s -H ches.h -o ches.t3x
-tex3ds -i chesn.t3s -H chesn.h -o chesn.t3x
-
-tex3ds -i skybox.t3s -H skybox.h -o skybox.t3x
-
-tex3ds -i beecat.t3s -H beecat.h -o beecat.t3x
-tex3ds -i beecatn.t3s -H beecatn.h -o beecatn.t3x
-
-tex3ds -i bloxi.t3s -H bloxi.h -o bloxi.t3x
-tex3ds -i bloxin.t3s -H bloxin.h -o bloxin.t3x
