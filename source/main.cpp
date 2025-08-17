@@ -6,6 +6,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 // 3d
 
@@ -48,6 +49,12 @@
 	GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO))
 
 namespace {
+	typedef struct
+	{
+		std::vector<vertex> vertlist;
+		std::vector<unsigned int> indexlist;
+	} _3DObject;
+
 	// shader
 	DVLB_s* vshader_dvlb;
 	shaderProgram_s program;
@@ -62,7 +69,8 @@ namespace {
 
 	// model 1
 	C3D_Tex diffuse_tex, normal_tex;
-	float angleX, angleY = 0.0;
+	float lightX, lightY = 0.0;
+	float turnX, turnY = 0.0;
 	int uLoc_projection, uLoc_modelView;
 	C3D_Mtx projection;
 
@@ -71,21 +79,20 @@ namespace {
 	C3D_Tex bloxi_tex;
 	C3D_Tex bloxin_tex;
 
-	C3D_FVec bloxy_rotation = FVec3_New(C3D_AngleFromDegrees(0.0), C3D_AngleFromDegrees(0.0), C3D_AngleFromDegrees(0.0));
-
 	// model 2
 	//C3D_Tex ches_tex, chesn_tex;
 
 	unsigned int __pos = 0;
-	float xAngle = 12.0;
-	float zAngle = 0.0;
-	float yOffsetMult = -0.37;
-	//int objAmt = 15;
+	/*float yOffsetMult = -0.37;
+	int objAmt = 15;*/
 
 	C2D_TextBuf staticTextBuf;
 
 	C2D_Text txt_helloWorldOutl;
 	C2D_Text txt_helloWorld;
+
+	const _3DObject bloxy_model = {blox_list, blox_index};
+	const _3DObject cube_model = {cube_list, cube_index};
 
 	// Helper function for loading a texture from memory
 	bool loadTextureFromMem(C3D_Tex* tex, C3D_TexCube* cube, const void* data, size_t size)
@@ -119,10 +126,6 @@ namespace {
 			return FVec3_New(0.0f, 0.0f, 0.0f);
 	}
 
-	vertex get_vertex(std::vector<vertex> _vert, int idx) {
-		return _vert[idx];
-	}
-
 	void sendAttribs(vertex info) {
 		C3D_ImmSendAttrib(info.position[0], info.position[1], info.position[2], 0.0f); // v0 - pos
 		C3D_ImmSendAttrib(info.uv[0], info.uv[1], 0.0f, 0.0f); // v1 - uv
@@ -130,27 +133,41 @@ namespace {
 		C3D_ImmSendAttrib(info.tangent[0], info.tangent[1], info.tangent[2], 0.0f); // v3 - tang
 	}
 
-	void populateTangents(std::vector<vertex> _arr, std::vector<unsigned int> indlist = {}) {
-		if (indlist.empty()) {
-			for (int i = 0; i < (int)_arr.size(); i++) {
-				indlist.push_back((unsigned int)i);
+	struct Triangle
+	{
+		unsigned int index[3];
+	};
+
+	void populateTangents(_3DObject model) {
+		if (model.indexlist.empty()) {
+			for (int i = 0; i < (int)model.vertlist.size(); i++) {
+				model.indexlist.push_back((unsigned int)i);
 			}
 		}
-		for (int i = 0; i < ((int)indlist.size() / 3); i++) {
-			C3D_FVec tangent_vec = calcTangents(
-				FVec3_New(get_vertex(_arr, indlist[i]).position[0], get_vertex(_arr, indlist[i]).position[1], get_vertex(_arr, indlist[i]).position[2]),
-				FVec3_New(get_vertex(_arr, indlist[i + 1]).position[0], get_vertex(_arr, indlist[i + 1]).position[1], get_vertex(_arr, indlist[i + 1]).position[2]),
-				FVec3_New(get_vertex(_arr, indlist[i + 2]).position[0], get_vertex(_arr, indlist[i + 2]).position[1], get_vertex(_arr, indlist[i + 2]).position[2]),
-				FVec3_New(get_vertex(_arr, indlist[i]).uv[0], get_vertex(_arr, indlist[i]).uv[1], 0.0f),
-				FVec3_New(get_vertex(_arr, indlist[i + 1]).uv[0], get_vertex(_arr, indlist[i + 1]).uv[1], 0.0f),
-				FVec3_New(get_vertex(_arr, indlist[i + 2]).uv[0], get_vertex(_arr, indlist[i + 2]).uv[1], 0.0f),
-				FVec3_New(get_vertex(_arr, indlist[i]).normal[0], get_vertex(_arr, indlist[i]).normal[1], get_vertex(_arr, indlist[i]).normal[2])
-			);
-			std::vector<float> tang = {tangent_vec.x, tangent_vec.y, tangent_vec.z};
 
-			std::memcpy(get_vertex(_arr, indlist[i]).tangent, &tang, sizeof(tang));
-			std::memcpy(get_vertex(_arr, indlist[i + 1]).tangent, &tang, sizeof(tang));
-			std::memcpy(get_vertex(_arr, indlist[i + 2]).tangent, &tang, sizeof(tang));
+		std::vector<Triangle> triangles = {};
+		for (int i = 0; i < ((int)model.indexlist.size() / 3); i++) {
+			triangles.push_back({ model.indexlist[i] , model.indexlist[i + 1], model.indexlist[i + 2] });
+		}
+
+		std::vector<vertex> nv = model.vertlist;
+		for (int i = 0; i < (int)triangles.size(); i++) {
+			C3D_FVec tangent_vec = calcTangents(
+				FVec3_New(nv[triangles[i].index[0]].position[0], nv[triangles[i].index[0]].position[1], nv[triangles[i].index[0]].position[2]),
+				FVec3_New(nv[triangles[i].index[1]].position[0], nv[triangles[i].index[1]].position[1], nv[triangles[i].index[1]].position[2]),
+				FVec3_New(nv[triangles[i].index[2]].position[0], nv[triangles[i].index[2]].position[1], nv[triangles[i].index[2]].position[2]),
+				FVec3_New(nv[triangles[i].index[0]].uv[0], nv[triangles[i].index[0]].uv[1], 0.0f),
+				FVec3_New(nv[triangles[i].index[1]].uv[0], nv[triangles[i].index[1]].uv[1], 0.0f),
+				FVec3_New(nv[triangles[i].index[2]].uv[0], nv[triangles[i].index[2]].uv[1], 0.0f),
+				FVec3_New(nv[triangles[i].index[0]].normal[0], nv[triangles[i].index[0]].normal[1], nv[triangles[i].index[0]].normal[2])
+			);
+			float tang[3] = {tangent_vec.x, tangent_vec.y, tangent_vec.z};
+
+			for (int g = 0; g < 3; ++g) {
+				model.vertlist[triangles[i].index[0]].tangent[g] = tang[g];
+				model.vertlist[triangles[i].index[1]].tangent[g] = tang[g];
+				model.vertlist[triangles[i].index[2]].tangent[g] = tang[g];
+			}
 		}
 	}
 
@@ -173,9 +190,9 @@ namespace {
 		AttrInfo_AddLoader(attrInfo, 2, GPU_FLOAT, 3); // v2=normal
 		AttrInfo_AddLoader(attrInfo, 3, GPU_FLOAT, 3); // v3=tangent
 
-		populateTangents(blox_list);
-		populateTangents(cube_list);
-		populateTangents(sphere_list);
+		populateTangents(bloxy_model);
+		populateTangents(cube_model);
+		//populateTangents(sphere_list, sphere_index);
 
 		// Load the textures and bind them to their respective texture units
 		if (!loadTextureFromMem(&diffuse_tex, nullptr, diffuse_t3x, diffuse_t3x_size))
@@ -249,7 +266,7 @@ namespace {
 		// Calculate the modelView matrix
 		C3D_Mtx modelView;
 		Mtx_Identity(&modelView);
-		Mtx_Translate(&modelView, pos.x, pos.y, pos.z/* + sinf(angleX)*/, true);
+		Mtx_Translate(&modelView, pos.x, pos.y, pos.z, true);
 		Mtx_RotateX(&modelView, rot.x, true);
 		Mtx_RotateY(&modelView, rot.y, true);
 		Mtx_RotateZ(&modelView, rot.z, true);
@@ -287,7 +304,7 @@ namespace {
 		// Calculate the modelView matrix
 		C3D_Mtx modelView;
 		Mtx_Identity(&modelView);
-		Mtx_Translate(&modelView, pos.x, pos.y, pos.z/* + sinf(angleX)*/, true);
+		Mtx_Translate(&modelView, pos.x, pos.y, pos.z, true);
 		Mtx_RotateX(&modelView, rot.x, true);
 		Mtx_RotateY(&modelView, rot.y, true);
 		Mtx_RotateZ(&modelView, rot.z, true);
@@ -350,9 +367,9 @@ namespace {
 		SceneBind();
 
 		// cosf sinf
-		C3D_FVec green = FVec4_New(4.0f * cosf(angleY), -(4.0f * cosf(angleY)), 1.25f, 1.0f);
-		C3D_FVec red = FVec4_New(-sinf(angleX), 4.0f * cosf(angleY), 1.25f, 1.0f);
-		C3D_FVec blue = FVec4_New(-(4.0f * cosf(angleY)), -(4.0f * cosf(angleY)), 1.25f, 1.0f);
+		C3D_FVec green = FVec4_New(4.0f * cosf(lightY), -(4.0f * cosf(lightY)), 1.25f, 1.0f);
+		C3D_FVec red = FVec4_New(-sinf(lightX), 4.0f * cosf(lightY), 1.25f, 1.0f);
+		C3D_FVec blue = FVec4_New(-(4.0f * cosf(lightY)), -(4.0f * cosf(lightY)), 1.25f, 1.0f);
 
 		C3D_LightPosition(&light, &green);
 		C3D_LightPosition(&light2, &blue);
@@ -364,7 +381,7 @@ namespace {
 
 		C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA, GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA);
 
-		drawIndices(cube_list, cube_index, true, true, {
+		drawIndices(cube_model.vertlist, cube_model.indexlist, true, true, {
 			{ 0.0f, 0.0f, 0.0f }, //ambient
 			{ 1.0f, 1.0f, 1.0f }, //diffuse
 			{ 0.6f, 0.6f, 0.6f }, //specular0
@@ -372,9 +389,7 @@ namespace {
 			{ 0.906f, 0.486f, 0.561f }, //emission
 		}, FVec3_New(0.0, -1.0, -3.0), FVec3_New(C3D_AngleFromDegrees(15.0), C3D_AngleFromDegrees(0.0), C3D_AngleFromDegrees(0.0)), FVec3_New(3.0f, 0.25f, 3.0f), diffuse_tex, normal_tex, GPU_REPEAT, GPU_REPEAT);
 
-		//C3D_FVec shared_rotation = FVec3_New(C3D_AngleFromDegrees(xAngle), angleY, C3D_AngleFromDegrees(zAngle));
-		C3D_FVec shared_scale = FVec3_New(0.6f, 0.6f, 0.6f);
-		//C3D_FVec shared_scale = FVec3_New(0.125f, 0.125f, 0.125f);
+		C3D_FVec shared_scale = FVec3_New(0.7f, 0.7f, 0.7f);
 
 		/*float _y = 0.0;
 		for (int i = 1; i <= 15; i++) {
@@ -391,13 +406,13 @@ namespace {
 				{ 0.906f, 0.486f, 0.561f }, //emission
 			}, FVec3_New(-((i % 5) * 0.4) + 0.8, ((_y - (1.0 * aaa)) * yOffsetMult) + (-yOffsetMult), -3.0), shared_rotation, shared_scale, beecat_tex, beecatn_tex, GPU_REPEAT, GPU_REPEAT);
 		}*/
-		drawIndices(blox_list, blox_index, true, true, {
+		drawIndices(bloxy_model.vertlist, bloxy_model.indexlist, true, true, {
 				{ 0.0f, 0.0f, 0.0f }, //ambient
 				{ 1.0f, 1.0f, 1.0f }, //diffuse
 				{ 0.6f, 0.6f, 0.6f }, //specular0
 				{ 0.0f, 0.0f, 0.0f }, //specular1
 				{ 0.906f, 0.486f, 0.561f }, //emission
-		}, FVec3_New(0.0, 0.0, -3.0), bloxy_rotation, shared_scale, bloxi_tex, bloxin_tex, GPU_REPEAT, GPU_REPEAT);
+		}, FVec3_New(0.0, -0.125, -3.0), FVec3_New(C3D_AngleFromDegrees(turnX), C3D_AngleFromDegrees(turnY), C3D_AngleFromDegrees(0.0)), shared_scale, bloxi_tex, bloxin_tex, GPU_REPEAT, GPU_REPEAT);
 
 		// Draw the 2d scene
 		C2D_Prepare();
@@ -405,8 +420,8 @@ namespace {
 
 		//C2D_DrawRectangle(SCREEN_WIDTH / 2, 0, 0, SCREEN_WIDTH / 50, SCREEN_HEIGHT, C2D_Color32(0x9A, 0x6C, 0xB9, 0xFF), C2D_Color32(0xFF, 0xFF, 0x2C, 0xFF), C2D_Color32(0xD8, 0xF6, 0x0F, 0xFF), C2D_Color32(0x40, 0xEA, 0x87, 0xFF));
 
-		float _cos = /*(cosf(angleY * 1.5f) * 5.0f)*/0.0f;
-		float _sen = /*(sinf(angleY * 1.5f) * 5.0f)*/0.0f;
+		float _cos = /*(cosf(lightY * 1.5f) * 5.0f)*/0.0f;
+		float _sen = /*(sinf(lightY * 1.5f) * 5.0f)*/0.0f;
 
 		C2D_DrawText(&txt_helloWorldOutl, C2D_AlignCenter, (SCREEN_WIDTH / 2) + (_cos + 2.85f), 6.0f + _sen, 0.0f, 1.05f, 1.2f);
 		C2D_DrawText(&txt_helloWorld, C2D_AlignCenter | C2D_WithColor, (SCREEN_WIDTH / 2) + _cos, 8.0f + _sen, 0.0f, 1.0f, 1.0f, C2D_Color32f(1, 0.8, 0, 1));
@@ -465,10 +480,10 @@ int main()
 		if (kDown & KEY_START)
 			break; // break in order to return to hbmenu
 
-		if (kHeld & KEY_LEFT)
-			angleY -= C3D_AngleFromDegrees(2.0f);
-		else if (kHeld & KEY_RIGHT)
-			angleY += C3D_AngleFromDegrees(2.0f);
+		if (kHeld & KEY_DLEFT)
+			lightY -= C3D_AngleFromDegrees(2.0f);
+		else if (kHeld & KEY_DRIGHT)
+			lightY += C3D_AngleFromDegrees(2.0f);
 
 		/*/if (kDown & KEY_A)
 			yOffsetMult += 0.0625;
@@ -480,74 +495,43 @@ int main()
 		else if ((kDown & KEY_X) && objAmt > 1)
 			objAmt--;*/
 
-		/*if (kHeld & KEY_A)
-			xAngle -= 0.1f;
-		else if (kHeld & KEY_B)
-			xAngle += 0.1f;
-		if (kHeld & KEY_L)
-			zAngle -= 0.1f;
-		else if (kHeld & KEY_R)
-			zAngle += 0.1f;*/
-
 		float slider = osGet3DSliderState();
 		float iod = slider / 3;
 
-		// Rotate the cube each frame
-		//angleX += C3D_AngleFromDegrees(1.0);
-		angleY += C3D_AngleFromDegrees(1.0);
+		lightX += C3D_AngleFromDegrees(1.0);
+		lightY += C3D_AngleFromDegrees(1.0);
 
-		/*std::printf("\x1b[2;1Hx_Angle:     %6.2f%\x1b[K", xAngle);
-		std::printf("\x1b[3;1Hz_Angle:     %6.2f%\x1b[K", zAngle);
-
-		std::printf("\x1b[4;1H--------------------------");
-
-		std::printf("\x1b[5;1HangleX:      %6.2f%\x1b[K", angleX * (M_PI / 180));
-		std::printf("\x1b[6;1HangleY:      %6.2f%\x1b[K", angleY * (M_PI / 180));*/
-
-		/*std::printf("\x1b[7;1H--------------------------");*/
-
-		if (kDown & KEY_L)
-		{
-			/*angleX -= C3D_AngleFromDegrees(2.0f);
-			if (angleX < C3D_AngleFromDegrees(-90.0f))
-				angleX = C3D_AngleFromDegrees(-90.0f);*/
-			if (__pos < cube_list.size())
-				__pos += 1;
-		}
-		else if (kDown & KEY_R)
-		{
-			/*angleX += C3D_AngleFromDegrees(2.0f);
-			if (angleX > C3D_AngleFromDegrees(90.0f))
-				angleX = C3D_AngleFromDegrees(90.0f);*/
-			if (__pos > 0)
-				__pos -= 1;
+		if (kDown & KEY_L) {
+			if (__pos < bloxy_model.vertlist.size()) __pos += 1;
+		} else if (kDown & KEY_R) {
+			if (__pos > 0) __pos -= 1;
 		}
 
-		if (kHeld) {
-			if (KEY_CPAD_UP || KEY_CPAD_DOWN || KEY_CPAD_LEFT || KEY_CPAD_RIGHT) {
-				circlePosition circlePad;
-				hidCircleRead(std::addressof(circlePad));
-				C3D_FVec cpad = FVec3_Normalize(FVec3_New((float)circlePad.dx, (float)circlePad.dy, 0.0));
+		circlePosition circlePad;
+		hidCircleRead(std::addressof(circlePad));
+		if ((kHeld & KEY_CPAD_UP) || (kHeld & KEY_CPAD_DOWN) || (kHeld & KEY_CPAD_LEFT) || (kHeld & KEY_CPAD_RIGHT)) {
+			C3D_FVec cpad = FVec3_Normalize(FVec3_New((float)circlePad.dx, (float)circlePad.dy, 0.0));
 
-				std::printf("\x1b[8;1H        dX: %6.2f%\x1b[K", cpad.x);
-				std::printf("\x1b[9;1H        dY: %6.2f%\x1b[K", cpad.y);
-			}
+			std::printf(std::string("\x1b[8;1H        dX: %6.2f%\x1b[K").c_str(), cpad.x);
+			std::printf(std::string("\x1b[9;1H        dY: %6.2f%\x1b[K").c_str(), cpad.y);
 		}
 		else {
 			std::printf("\x1b[8;1H        Not holding cpad");
 			std::printf("\x1b[9;1H                        ");
 		}
+		turnX += 0.01f * (float)-circlePad.dy;
+		turnY += 0.01f * (float)circlePad.dx;
 
 		std::printf("\x1b[11;1H        ------------------------");
 		std::printf("\x1b[12;1H        | CPU:         %6.2f%%\x1b[K |", C3D_GetProcessingTime() * 6.0f);
 		std::printf("\x1b[13;1H        | GPU:         %6.2f%%\x1b[K |", C3D_GetDrawingTime() * 6.0f);
 		std::printf("\x1b[14;1H        | CmdBuf:      %6.2f%%\x1b[K |", C3D_GetCmdBufUsage() * 100.0f);
-		std::printf("\x1b[15;1H        | Frames:          %6.2ld%\x1b[K |", C3D_FrameCounter(0));
+		std::printf(std::string("\x1b[15;1H        | Frames:       %6.2ld%\x1b[K |").c_str(), C3D_FrameCounter(0));
 		std::printf("\x1b[16;1H        ------------------------");
 		std::printf(std::string("\x1b[17;1H        | Idx:         %6.2f%\x1b[K  |").c_str(), (float)__pos);
-		std::printf(std::string("\x1b[18;1H        | Tangent X:   %6.2f%\x1b[K  |").c_str(), (float)cube_list[__pos].tangent[0]);
-		std::printf(std::string("\x1b[19;1H        | Tangent Y:   %6.2f%\x1b[K  |").c_str(), (float)cube_list[__pos].tangent[1]);
-		std::printf(std::string("\x1b[20;1H        | Tangent Z:   %6.2f%\x1b[K  |").c_str(), (float)cube_list[__pos].tangent[2]);
+		std::printf(std::string("\x1b[18;1H        | Tangent X:   %6.2f%\x1b[K  |").c_str(), bloxy_model.vertlist[__pos].tangent[0]);
+		std::printf(std::string("\x1b[19;1H        | Tangent Y:   %6.2f%\x1b[K  |").c_str(), bloxy_model.vertlist[__pos].tangent[1]);
+		std::printf(std::string("\x1b[20;1H        | Tangent Z:   %6.2f%\x1b[K  |").c_str(), bloxy_model.vertlist[__pos].tangent[2]);
 		std::printf("\x1b[21;1H        ------------------------");
 
 		// spent a good amount of time doing this thing thats under this text just to decide to go back to the older "version" LOL (keeping it here in case i need it again)
