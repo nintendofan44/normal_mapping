@@ -1,4 +1,7 @@
 build/
+gfx/*.t3x
+gfx/*.h
+source/*.shbin
 *.3dsx
 *.elf
 *.smdh
