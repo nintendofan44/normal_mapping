@@ -412,7 +412,7 @@ namespace {
 				{ 0.6f, 0.6f, 0.6f }, //specular0
 				{ 0.0f, 0.0f, 0.0f }, //specular1
 				{ 0.906f, 0.486f, 0.561f }, //emission
-		}, FVec3_New(0.0, -0.125, -3.0), FVec3_New(C3D_AngleFromDegrees(turnX), C3D_AngleFromDegrees(turnY), C3D_AngleFromDegrees(0.0)), shared_scale, bloxi_tex, bloxin_tex, GPU_REPEAT, GPU_REPEAT);
+		}, FVec3_New(0.0, -0.125, -3.0), FVec3_New(C3D_AngleFromDegrees(turnY), C3D_AngleFromDegrees(turnX), C3D_AngleFromDegrees(0.0)), shared_scale, bloxi_tex, bloxin_tex, GPU_REPEAT, GPU_REPEAT);
 
 		// Draw the 2d scene
 		C2D_Prepare();
@@ -519,8 +519,8 @@ int main()
 			std::printf("\x1b[8;1H        Not holding cpad");
 			std::printf("\x1b[9;1H                        ");
 		}
-		turnX += 0.01f * (float)-circlePad.dy;
-		turnY += 0.01f * (float)circlePad.dx;
+		turnX -= 0.01f * (float)circlePad.dx;
+		turnY -= 0.01f * (float)circlePad.dy;
 
 		std::printf("\x1b[11;1H        ------------------------");
 		std::printf("\x1b[12;1H        | CPU:         %6.2f%%\x1b[K |", C3D_GetProcessingTime() * 6.0f);
