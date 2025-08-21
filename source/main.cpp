@@ -1,4 +1,4 @@
-// Bump mapping (normal mapping) example
+﻿// Bump mapping (normal mapping) example
 // Texture borrowed from here:
 // http://polycount.com/discussion/89636/free-textures-to-use-i-only-ask-one-thing
 
@@ -140,7 +140,7 @@ namespace {
 		unsigned int index[3];
 	};
 
-	void populateTangents(_3DObject *model) {
+	void populateTangents(_3DObject* model) {
 		if (model->indexlist.empty()) {
 			for (int i = 0; i < (int)model->vertlist.size(); i++) {
 				model->indexlist.push_back((unsigned int)i);
@@ -163,7 +163,7 @@ namespace {
 				FVec3_New(nv[triangles[i].index[2]].uv[0], nv[triangles[i].index[2]].uv[1], 0.0f),
 				FVec3_New(nv[triangles[i].index[0]].normal[0], nv[triangles[i].index[0]].normal[1], nv[triangles[i].index[0]].normal[2])
 			);
-			float tang[3] = {tangent_vec.x, tangent_vec.y, tangent_vec.z};
+			float tang[3] = { tangent_vec.x, tangent_vec.y, tangent_vec.z };
 
 			std::memmove(model->vertlist[triangles[i].index[0]].tangent, tang, sizeof(tang));
 			std::memmove(model->vertlist[triangles[i].index[1]].tangent, tang, sizeof(tang));
@@ -280,11 +280,11 @@ namespace {
 			C3D_TexBind(0, &_diffuse);
 		}
 
-		if (bump) { 
+		if (bump) {
 			C3D_TexSetWrap(&_bumpmap, wrap1, wrap2);
 			C3D_TexSetFilter(&_bumpmap, GPU_LINEAR, GPU_NEAREST);
 			C3D_TexBind(1, &_bumpmap);
-			C3D_LightEnvBumpMode(&lightEnv, GPU_BUMP_AS_BUMP); 
+			C3D_LightEnvBumpMode(&lightEnv, GPU_BUMP_AS_BUMP);
 		}
 		else { C3D_LightEnvBumpMode(&lightEnv, GPU_BUMP_NOT_USED); }
 
@@ -318,11 +318,11 @@ namespace {
 			C3D_TexBind(0, &_diffuse);
 		}
 
-		if (bump) { 
+		if (bump) {
 			C3D_TexSetWrap(&_bumpmap, wrap1, wrap2);
 			C3D_TexSetFilter(&_bumpmap, GPU_LINEAR, GPU_NEAREST);
 			C3D_TexBind(1, &_bumpmap);
-			C3D_LightEnvBumpMode(&lightEnv, GPU_BUMP_AS_BUMP); 
+			C3D_LightEnvBumpMode(&lightEnv, GPU_BUMP_AS_BUMP);
 		}
 		else { C3D_LightEnvBumpMode(&lightEnv, GPU_BUMP_NOT_USED); }
 
@@ -394,7 +394,7 @@ namespace {
 		/*float _y = 0.0;
 		for (int i = 1; i <= 15; i++) {
 			float aaa = 0.0;
-			if (i % 5 == 0) { 
+			if (i % 5 == 0) {
 				_y += 1.0;
 				aaa = 1.0;
 			}
@@ -503,7 +503,8 @@ int main()
 
 		if (kDown & KEY_L) {
 			if (__pos < bloxy_model.vertlist.size()) __pos += 1;
-		} else if (kDown & KEY_R) {
+		}
+		else if (kDown & KEY_R) {
 			if (__pos > 0) __pos -= 1;
 		}
 
