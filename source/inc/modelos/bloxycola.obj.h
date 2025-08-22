@@ -724,7 +724,7 @@ std::vector<vertex> blox_list = {
 { { 0.00000f, 1.30086f, -0.91429f }, { 0.00000f, 0.49689f }, { -0.00000f, 0.53020f, -0.84780f }, {} },
  };
 
-std::vector<unsigned int> blox_index = {
+std::vector</*short*/ unsigned int> blox_index = {
 0, 1, 2, 
 3, 4, 1, 
 5, 6, 4, 

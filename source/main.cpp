@@ -53,7 +53,11 @@ namespace {
 	typedef struct
 	{
 		std::vector<vertex> vertlist;
-		std::vector<unsigned int> indexlist;
+		std::vector</*short*/ unsigned int> indexlist;
+		/*C3D_BufInfo* bufInfo;
+
+		void* v;
+		void* i;*/
 	} _3DObject;
 
 	// shader
@@ -84,7 +88,7 @@ namespace {
 	C3D_Tex bloxi_tex;
 	C3D_Tex bloxin_tex;
 
-	unsigned int __pos = 0;
+	/*short*/ unsigned int __pos = 0;
 	/*float yOffsetMult = -0.37;
 	int objAmt = 15;*/
 
@@ -93,8 +97,8 @@ namespace {
 	C2D_Text txt_helloWorldOutl;
 	C2D_Text txt_helloWorld;
 
-	_3DObject bloxy_model = { blox_list, blox_index };
-	_3DObject cube_model = { cube_list, cube_index };
+	_3DObject bloxy_model = { blox_list, blox_index/*, 0, 0*/ };
+	_3DObject cube_model = { cube_list, cube_index/*, 0, 0*/ };
 
 	// Helper function for loading a texture from memory
 	bool loadTextureFromMem(C3D_Tex* tex, C3D_TexCube* cube, const void* data, size_t size)
@@ -137,13 +141,13 @@ namespace {
 
 	struct Triangle
 	{
-		unsigned int index[3];
+		/*short*/ unsigned int index[3];
 	};
 
 	void populateTangents(_3DObject* model) {
 		if (model->indexlist.empty()) {
 			for (int i = 0; i < (int)model->vertlist.size(); i++) {
-				model->indexlist.push_back((unsigned int)i);
+				model->indexlist.push_back((/*short*/ unsigned int)i);
 			}
 		}
 
@@ -171,6 +175,19 @@ namespace {
 		}
 	}
 
+	/*void buffer(_3DObject* model) {
+		model->v = (vertex*)linearAlloc(model->vertlist.size() * sizeof(vertex));
+		memcpy(model->v, model->vertlist.data(), model->vertlist.size() * sizeof(vertex));
+
+		model->i = (short unsigned int*)linearAlloc(model->indexlist.size() * sizeof(short unsigned int));
+		memcpy(model->i, model->indexlist.data(), model->indexlist.size() * sizeof(short unsigned int));
+
+		// Configure buffers
+		model->bufInfo = C3D_GetBufInfo();
+		BufInfo_Init(model->bufInfo);
+		BufInfo_Add(model->bufInfo, model->v, sizeof(vertex), 4, 0x3210);
+	}*/
+
 	void sceneInit(void)
 	{
 		// Load the vertex shader, create a shader program and bind it
@@ -193,6 +210,9 @@ namespace {
 		populateTangents(&bloxy_model);
 		populateTangents(&cube_model);
 		//populateTangents(sphere_list, sphere_index);
+
+		/*buffer(&bloxy_model);
+		buffer(&cube_model);*/
 
 		// Load the textures and bind them to their respective texture units
 		if (!loadTextureFromMem(&diffuse_tex, nullptr, diffuse_t3x, diffuse_t3x_size))
@@ -262,7 +282,7 @@ namespace {
 		C2D_TextOptimize(&txt_helloWorld);
 	}
 
-	void drawIndices(std::vector<vertex> vt_l, std::vector<unsigned int> ind, bool useTex, bool bump, const C3D_Material mat, C3D_FVec pos, C3D_FVec rot, C3D_FVec scale, C3D_Tex _diffuse, C3D_Tex _bumpmap, GPU_TEXTURE_WRAP_PARAM wrap1, GPU_TEXTURE_WRAP_PARAM wrap2) {
+	void drawIndices(_3DObject* model, bool useTex, bool bump, const C3D_Material mat, C3D_FVec pos, C3D_FVec rot, C3D_FVec scale, C3D_Tex _diffuse, C3D_Tex _bumpmap, GPU_TEXTURE_WRAP_PARAM wrap1, GPU_TEXTURE_WRAP_PARAM wrap2) {
 		// Calculate the modelView matrix
 		C3D_Mtx modelView;
 		Mtx_Identity(&modelView);
@@ -294,48 +314,20 @@ namespace {
 		// GPU_TRIANGLES GPU_GEOMETRY_PRIM GPU_TRIANGLE_STRIP GPU_TRIANGLE_FAN
 
 		C3D_ImmDrawBegin(GPU_TRIANGLES);
-		for (unsigned int i = 0; i < ind.size(); i++) {
-			sendAttribs(vt_l[ind[i]]);
+		for (unsigned int i = 0; i < model->indexlist.size(); i++) {
+			sendAttribs(model->vertlist[model->indexlist[i]]);
 		}
 		C3D_ImmDrawEnd();
-	}
 
-	void drawVerticesOnly(std::vector<vertex> vt_l, bool useTex, bool bump, const C3D_Material mat, C3D_FVec pos, C3D_FVec rot, C3D_FVec scale, C3D_Tex _diffuse, C3D_Tex _bumpmap, GPU_TEXTURE_WRAP_PARAM wrap1, GPU_TEXTURE_WRAP_PARAM wrap2) {
-		// Calculate the modelView matrix
-		C3D_Mtx modelView;
-		Mtx_Identity(&modelView);
-		Mtx_Translate(&modelView, pos.x, pos.y, pos.z, true);
-		Mtx_RotateX(&modelView, rot.x, true);
-		Mtx_RotateY(&modelView, rot.y, true);
-		Mtx_RotateZ(&modelView, rot.z, true);
-		Mtx_Scale(&modelView, scale.x, scale.y, scale.z);
-
-		C3D_LightEnvMaterial(&lightEnv, &mat);
-
-		if (useTex) {
-			C3D_TexSetWrap(&_diffuse, wrap1, wrap2);
-			C3D_TexSetFilter(&_diffuse, GPU_LINEAR, GPU_NEAREST);
-			C3D_TexBind(0, &_diffuse);
-		}
-
-		if (bump) {
-			C3D_TexSetWrap(&_bumpmap, wrap1, wrap2);
-			C3D_TexSetFilter(&_bumpmap, GPU_LINEAR, GPU_NEAREST);
-			C3D_TexBind(1, &_bumpmap);
-			C3D_LightEnvBumpMode(&lightEnv, GPU_BUMP_AS_BUMP);
-		}
-		else { C3D_LightEnvBumpMode(&lightEnv, GPU_BUMP_NOT_USED); }
-
-		// Update the uniforms
-		C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, uLoc_modelView, &modelView);
-
-		// GPU_TRIANGLES GPU_GEOMETRY_PRIM GPU_TRIANGLE_STRIP GPU_TRIANGLE_FAN
-
-		C3D_ImmDrawBegin(GPU_TRIANGLES);
+		/*C3D_ImmDrawBegin(GPU_TRIANGLES);
 		for (unsigned int i = 0; i < vt_l.size(); i++) {
 			sendAttribs(vt_l[i]);
 		}
-		C3D_ImmDrawEnd();
+		C3D_ImmDrawEnd();*/
+
+		/*C3D_SetBufInfo(model->bufInfo);
+
+		C3D_DrawElements(GPU_TRIANGLES, model->indexlist.size(), C3D_UNSIGNED_SHORT, model->i);*/
 	}
 
 	void SceneBind(void) {
@@ -381,7 +373,7 @@ namespace {
 
 		C3D_AlphaBlend(GPU_BLEND_ADD, GPU_BLEND_ADD, GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA, GPU_SRC_ALPHA, GPU_ONE_MINUS_SRC_ALPHA);
 
-		drawIndices(cube_model.vertlist, cube_model.indexlist, true, true, {
+		drawIndices(&cube_model, true, true, {
 			{ 0.0f, 0.0f, 0.0f }, //ambient
 			{ 1.0f, 1.0f, 1.0f }, //diffuse
 			{ 0.6f, 0.6f, 0.6f }, //specular0
@@ -406,7 +398,7 @@ namespace {
 				{ 0.906f, 0.486f, 0.561f }, //emission
 			}, FVec3_New(-((i % 5) * 0.4) + 0.8, ((_y - (1.0 * aaa)) * yOffsetMult) + (-yOffsetMult), -3.0), shared_rotation, shared_scale, beecat_tex, beecatn_tex, GPU_REPEAT, GPU_REPEAT);
 		}*/
-		drawIndices(bloxy_model.vertlist, bloxy_model.indexlist, true, true, {
+		drawIndices(&bloxy_model, true, true, {
 				{ 0.0f, 0.0f, 0.0f }, //ambient
 				{ 1.0f, 1.0f, 1.0f }, //diffuse
 				{ 0.6f, 0.6f, 0.6f }, //specular0
