@@ -19,10 +19,11 @@
 
 #include "diffuse_t3x.h"
 #include "normal_t3x.h"
-#include "bloxi_t3x.h"
-#include "bloxin_t3x.h"
-/*#include "beecat_t3x.h"
+
+#include "beecat_t3x.h"
 #include "beecatn_t3x.h"
+/*#include "bloxi_t3x.h"
+#include "bloxin_t3x.h"
 #include "ches_t3x.h"
 #include "chesn_t3x.h"*/
 
@@ -31,11 +32,12 @@
 #include <cstring>
 
 #include "inc/modelos/vert_typedef.h"
-#include "inc/modelos/default_cube.obj.h"
 #include "inc/modelos/chess_cube.obj.h"
-#include "inc/modelos/bola.obj.h"
-//#include "inc/modelos/bloxiade.obj.h"
+#include "inc/modelos/default_cube.obj.h"
+
+/*#include "inc/modelos/bloxiade.obj.h"
 #include "inc/modelos/bloxycola.obj.h"
+#include "inc/modelos/bola.obj.h"*/
 
 // 2d
 
@@ -50,16 +52,6 @@
 	GX_TRANSFER_SCALING(GX_TRANSFER_SCALE_NO))
 
 namespace {
-	typedef struct
-	{
-		std::vector<vertex> vertlist;
-		std::vector</*short*/ unsigned int> indexlist;
-		/*C3D_BufInfo* bufInfo;
-
-		void* v;
-		void* i;*/
-	} _3DObject;
-
 	// shader
 	DVLB_s* vshader_dvlb;
 	shaderProgram_s program;
@@ -81,14 +73,16 @@ namespace {
 
 	// center object
 	float turnX, turnY = 0.0;
-	/*C3D_Tex beecat_tex;
+	C3D_Tex beecat_tex;
 	C3D_Tex beecatn_tex;
+	
+	/*C3D_Tex bloxi_tex;
+	C3D_Tex bloxin_tex;
 	C3D_Tex ches_tex;
 	C3D_Tex chesn_tex;*/
-	C3D_Tex bloxi_tex;
-	C3D_Tex bloxin_tex;
+	
 
-	/*short*/ unsigned int __pos = 0;
+	/*short*/ u16 __pos = 0;
 	/*float yOffsetMult = -0.37;
 	int objAmt = 15;*/
 
@@ -97,7 +91,7 @@ namespace {
 	C2D_Text txt_helloWorldOutl;
 	C2D_Text txt_helloWorld;
 
-	_3DObject bloxy_model = { blox_list, blox_index/*, 0, 0*/ };
+	_3DObject bloxy_model = { vertex_list, index_list/*, 0, 0*/ };
 	_3DObject cube_model = { cube_list, cube_index/*, 0, 0*/ };
 
 	// Helper function for loading a texture from memory
@@ -139,15 +133,10 @@ namespace {
 		C3D_ImmSendAttrib(info.tangent[0], info.tangent[1], info.tangent[2], 0.0f); // v3 - tang
 	}
 
-	struct Triangle
-	{
-		/*short*/ unsigned int index[3];
-	};
-
 	void populateTangents(_3DObject* model) {
 		if (model->indexlist.empty()) {
 			for (int i = 0; i < (int)model->vertlist.size(); i++) {
-				model->indexlist.push_back((/*short*/ unsigned int)i);
+				model->indexlist.push_back((u16)i);
 			}
 		}
 
@@ -179,8 +168,8 @@ namespace {
 		model->v = (vertex*)linearAlloc(model->vertlist.size() * sizeof(vertex));
 		memcpy(model->v, model->vertlist.data(), model->vertlist.size() * sizeof(vertex));
 
-		model->i = (short unsigned int*)linearAlloc(model->indexlist.size() * sizeof(short unsigned int));
-		memcpy(model->i, model->indexlist.data(), model->indexlist.size() * sizeof(short unsigned int));
+		model->i = (u16*)linearAlloc(model->indexlist.size() * sizeof(u16));
+		memcpy(model->i, model->indexlist.data(), model->indexlist.size() * sizeof(u16));
 
 		// Configure buffers
 		model->bufInfo = C3D_GetBufInfo();
@@ -219,18 +208,17 @@ namespace {
 			svcBreak(USERBREAK_PANIC);
 		if (!loadTextureFromMem(&normal_tex, nullptr, normal_t3x, normal_t3x_size))
 			svcBreak(USERBREAK_PANIC);
-		if (!loadTextureFromMem(&bloxi_tex, nullptr, bloxi_t3x, bloxi_t3x_size))
-			svcBreak(USERBREAK_PANIC);
-		if (!loadTextureFromMem(&bloxin_tex, nullptr, bloxin_t3x, bloxin_t3x_size))
-			svcBreak(USERBREAK_PANIC);
-
-		/*if (!loadTextureFromMem(&beecat_tex, nullptr, beecat_t3x, beecat_t3x_size))
+		if (!loadTextureFromMem(&beecat_tex, nullptr, beecat_t3x, beecat_t3x_size))
 			svcBreak(USERBREAK_PANIC);
 		if (!loadTextureFromMem(&beecatn_tex, nullptr, beecatn_t3x, beecatn_t3x_size))
 			svcBreak(USERBREAK_PANIC);
-		if (!loadTextureFromMem(&ches_tex, nullptr, ches_t3x, ches_t3x_size))
+		/*if (!loadTextureFromMem(&ches_tex, nullptr, ches_t3x, ches_t3x_size))
 			svcBreak(USERBREAK_PANIC);
 		if (!loadTextureFromMem(&chesn_tex, nullptr, chesn_t3x, chesn_t3x_size))
+			svcBreak(USERBREAK_PANIC);
+		if (!loadTextureFromMem(&bloxi_tex, nullptr, bloxi_t3x, bloxi_t3x_size))
+			svcBreak(USERBREAK_PANIC);
+		if (!loadTextureFromMem(&bloxin_tex, nullptr, bloxin_t3x, bloxin_t3x_size))
 			svcBreak(USERBREAK_PANIC);*/
 
 		const C3D_Material material =
@@ -314,13 +302,13 @@ namespace {
 		// GPU_TRIANGLES GPU_GEOMETRY_PRIM GPU_TRIANGLE_STRIP GPU_TRIANGLE_FAN
 
 		C3D_ImmDrawBegin(GPU_TRIANGLES);
-		for (unsigned int i = 0; i < model->indexlist.size(); i++) {
+		for (u16 i = 0; i < model->indexlist.size(); i++) {
 			sendAttribs(model->vertlist[model->indexlist[i]]);
 		}
 		C3D_ImmDrawEnd();
 
 		/*C3D_ImmDrawBegin(GPU_TRIANGLES);
-		for (unsigned int i = 0; i < vt_l.size(); i++) {
+		for (u16 i = 0; i < vt_l.size(); i++) {
 			sendAttribs(vt_l[i]);
 		}
 		C3D_ImmDrawEnd();*/
@@ -404,7 +392,7 @@ namespace {
 				{ 0.6f, 0.6f, 0.6f }, //specular0
 				{ 0.0f, 0.0f, 0.0f }, //specular1
 				{ 0.906f, 0.486f, 0.561f }, //emission
-		}, FVec3_New(0.0, -0.0625, -3.0), FVec3_New(C3D_AngleFromDegrees(turnY), C3D_AngleFromDegrees(-turnX), C3D_AngleFromDegrees(0.0)), shared_scale, bloxi_tex, bloxin_tex, GPU_REPEAT, GPU_REPEAT);
+		}, FVec3_New(0.0, -0.0625, -3.0), FVec3_New(C3D_AngleFromDegrees(turnY), C3D_AngleFromDegrees(-turnX), C3D_AngleFromDegrees(0.0)), shared_scale, beecat_tex, beecatn_tex, GPU_REPEAT, GPU_REPEAT);
 
 		// Draw the 2d scene
 		C2D_Prepare();
@@ -425,12 +413,12 @@ namespace {
 		// Free the textures
 		C3D_TexDelete(&diffuse_tex);
 		C3D_TexDelete(&normal_tex);
-		C3D_TexDelete(&bloxi_tex);
-		C3D_TexDelete(&bloxin_tex);
-		/*C3D_TexDelete(&beecat_tex);
+		C3D_TexDelete(&beecat_tex);
 		C3D_TexDelete(&beecatn_tex);
-		C3D_TexDelete(&ches_tex);
-		C3D_TexDelete(&chesn_tex);*/
+		/*C3D_TexDelete(&ches_tex);
+		C3D_TexDelete(&chesn_tex);
+		C3D_TexDelete(&bloxi_tex);
+		C3D_TexDelete(&bloxin_tex);*/
 
 		C2D_TextBufDelete(staticTextBuf);
 

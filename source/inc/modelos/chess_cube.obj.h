@@ -30,7 +30,7 @@ std::vector<vertex> cube_list = {
 { { 1.00000f, 1.00000f, -1.00000f }, { 2.00000f, 2.00000f }, { -0.00000f, -0.00000f, -1.00000f }, {} },
  };
 
-std::vector</*short*/ unsigned int> cube_index = {
+std::vector<u16> cube_index = {
 0, 1, 2, 
 1, 3, 2, 
 4, 5, 6, 

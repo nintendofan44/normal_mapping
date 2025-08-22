@@ -30,7 +30,7 @@ std::vector<vertex> vertex_list = {
 { { 1.00000f, 1.00000f, -1.00000f }, { 0.00000f, 1.00000f }, { -0.00000f, -0.00000f, -1.00000f }, {} },
  };
 
-std::vector<unsigned int> index_list = {
+std::vector<u16> index_list = {
 0, 1, 2, 
 1, 3, 2, 
 4, 5, 6, 

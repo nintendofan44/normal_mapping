@@ -570,7 +570,7 @@ std::vector<vertex> sphere_list = {
 { { 0.00000f, -1.00869f, -0.00000f }, { -2.15270f, -6.83393f }, { -0.00000f, -1.00000f, -0.00000f }, {} },
  };
 
-std::vector<unsigned int> sphere_index = {
+std::vector<u16> sphere_index = {
 0, 1, 2, 
 3, 4, 5, 
 2, 6, 7, 
